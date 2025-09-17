@@ -174,6 +174,39 @@ sudo apt install libbpf-dev
 
 <br>
 
+### tracepoint 확인 방법
+
+![Cheak tracepoint](img/02-tracepoint-check.png)
+
+
+```bash
+sudo ls /sys/kernel/debug/tracing/events/
+```
+
+더 많은 tracepoint 지점을 확인해보고 싶다면 위 명령어로 확인 가능하다.   
+
+어떤 인자를 사용하는지 확인해보고 싶다면 아래처럼 확인해볼 수 있다.  
+
+```bash 
+alex030905@Janghoon-GB3Ultra:~$ sudo cat /sys/kernel/debug/tracing/events/syscalls/sys_enter_write/format
+name: sys_enter_write
+ID: 739
+format:
+        field:unsigned short common_type;       offset:0;       size:2; signed:0;
+        field:unsigned char common_flags;       offset:2;       size:1; signed:0;
+        field:unsigned char common_preempt_count;       offset:3;       size:1; signed:0;
+        field:int common_pid;   offset:4;       size:4; signed:1;
+
+        field:int __syscall_nr; offset:8;       size:4; signed:1;
+        field:unsigned int fd;  offset:16;      size:8; signed:0;
+        field:const char * buf; offset:24;      size:8; signed:0;
+        field:size_t count;     offset:32;      size:8; signed:0;
+
+print fmt: "fd: 0x%08lx, buf: 0x%08lx, count: 0x%08lx", ((unsigned long)(REC->fd)), ((unsigned long)(REC->buf)), ((unsigned long)(REC->count))
+```
+
+<br>
+
 ### 요약
 이번 실습에서 `ecc`와 `ecli`를 설치해보고 간단한 eBPF 프로그램을 가져와서 tracepoint 에 붙이는 과정을 따라가보았다.  
 syscall 후킹을 위해 커널이 공식적으로 제공하는 tracepoint 를 활용해보고, `write()` 시스템 콜 진입 지점(`sys_enter_write`)에 프로그램을 attach 하여 커널 동작을 관찰할 수 있었다.  
@@ -189,3 +222,4 @@ syscall 후킹을 위해 커널이 공식적으로 제공하는 tracepoint 를 �
 ## References
 - Full practice sequence : https://github.com/eunomia-bpf/bpf-developer-tutorial/blob/main/src/1-helloworld/README.md
 - Compile and Run & minimal.bpf.c : https://github.com/eunomia-bpf/eunomia-bpf/tree/master/examples/bpftools/minimal
+- How to check tracepoints : https://labex.io/tutorials/linux-how-to-check-if-a-kernel-tracepoint-is-active-in-linux-558726
