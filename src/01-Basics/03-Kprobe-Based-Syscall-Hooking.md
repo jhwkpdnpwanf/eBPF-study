@@ -86,7 +86,7 @@ int BPF_KRETPROBE(do_unlinkat_exit, long ret)
 
 그리고 `do_unlinkat` 이벤트를 사용해서 함수의 진입점과 종료점에 훅을 배치해서 시스템 콜을 추적하는 구조이다.  
 
-만약 이전 [02장 SEC 파트](https://github.com/jhwkpdnpwanf/eBPF-study/blob/main/week1/02-Tracepoint-Based-Syscall-Hooking.md#sec)를 안 봤다면 반드시 이해하고 와야한다.  
+만약 이전 [02장 SEC 파트](./02-Tracepoint-Based-Syscall-Hooking.md#sec)를 안 봤다면 반드시 이해하고 와야한다.  
 
 
 먼저 `SEC("kprobe/do_unlinkat")` 에 보이듯 kprobe는 함수 진입시에 트리거가 되는 kprobe 라는 식별자이다. 이를 통해 아래의 `BPF_KPROBE` 함수를 `do_unlinkat` 진입시에 실행할 수 있도록 attach 해준 것을 확인할 수 있다.  
