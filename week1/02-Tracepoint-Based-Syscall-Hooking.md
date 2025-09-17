@@ -84,25 +84,24 @@ ecc로 컴파일을 해준다.
 
 ### 프로젝트 실행
 
-![image](./img/02-ecli-result.png)
-
-
+ecli로 실행시켜주고,  
 ```bash
 $ sudo ./ecli run package.json
 Running eBPF program...
 ```
-
-
 <br>
 
+아래 명령어를 쳐서 해당 문자열을 grep 해주면 된다.  
 ```bash
 $ sudo cat /sys/kernel/debug/tracing/trace_pipe | grep "BPF triggered sys_enter_write"
 ```
+<br>
 
-그리고 `BPF triggered sys_enter_write` 를  grep 해주면,   
-이런식으로 `BPF triggered sys_enter_write` 문구가 계속 뜬다.    
+![image](./img/02-ecli-result.png)  
+  
+이렇게 계속해서 `BPF triggered sys_enter_write` 문구가 계속 뜨는 것을 볼 수 있다.    
 
-왜 이런 결과가 나오는지 확인해보자.  
+왜 이런 결과가 나오는지 확인해보자.   
 <br>
 
 ### minimal.bpf.c 분석
@@ -131,46 +130,28 @@ int handle_tp(void *ctx)
 ```
 <br>
 
-**SEC**  
-`SEC("경로")` 이 경로 위치에 tracepoint 를 만든다고 이해하면 된다.  
+### SEC  
 
-`/usr/include/bpf/bpf_helpers.h`에서 자세하게 살펴볼 수 있는데, 기본 패키지에 있는 파일은 아니라 `libbpg-dev` 설치 후 해당 경로를 살펴보면 있다.    
+우선 쉬운 이해를 위해 요약 먼저 해보자면,    
+`SEC("tp/syscalls/sys_enter_write")`   
+`int func()`   
+구조에서 tp(tracepoint)라는 방식으로 `sys_enter_write`에 `func`을 붙이겠다라는 뜻이다.  
 
-```bash
-sudo apt install libbpf-dev
-```
+SEC 안에 들어가는 문자열은 크게 두 부분으로 나눠서 생각하면 된다. `tp/syscalls/sys_enter_write`로 예시를 들자면 tp(tracepoint)라는 공식 식별자와 타겟이 되는 `syscalls/sys_enter_write` 부분이다.  
+
+SEC 아래에 적힌 함수가 어떤 방식으로 attach 할지를 공식 식별자를 보고 판단하고, 타겟으로 후킹할 함수를 알아낼 수 있는 것이다.  
+
+`sys_enter_write`은 `write` 시스템 콜의 진입 시점에 발생하는 이벤트이고, 이걸 지정했으니, 그 정의된 이벤트 지점에서 아래에 작성한 함수를 실행하겠다는 뜻이다.  
+
+지정된 곳에 특정 동작을 붙인 셈이니 이걸 `/syscalls/sys_enter_write`로 attach 한다고 표현한 것이다.  
+
 <br>
+ 
 
-```c
-#if __GNUC__ && !__clang__
+함수에 대해 설명하자면, `bpf_get_current_pid_tgid()` 를 통해 현재 PID를 얻어오고, `bpf_printk`를 이용해 PID 정보를 커널 trace 로그(`trace_pipe`)에 출력한다.   
 
-/*
- * Pragma macros are broken on GCC
- * https://gcc.gnu.org/bugzilla/show_bug.cgi?id=55578
- * https://gcc.gnu.org/bugzilla/show_bug.cgi?id=90400
- */
-#define SEC(name) __attribute__((section(name), used))
+그래서 실행 결과로 PID와 `BPF triggered sys_enter_write from PID %d.\n` 문자열이 출력되는 것이다.  
 
-#else
-
-#define SEC(name) \
-        _Pragma("GCC diagnostic push")                                  \
-        _Pragma("GCC diagnostic ignored \"-Wignored-attributes\"")      \
-        __attribute__((section(name), used))                            \
-        _Pragma("GCC diagnostic pop")                                   \
-
-#endif
-```
-여기서 `__attribute__((section(name), used))` 를 보면 C 언어에서 `__attribute__` 역할처럼 속성을 붙여준다. 여기서는 `section`으로 `tp/syscalls/sys_enter_write` 섹션에 `handle_tp` 함수를 넣는다.  
-
-`handle_tp` 함수는 `write()` 시스템 콜이 실행되기 직전에 커널에서 호출되는 eBPF 프로그램이다. `bpf_get_current_pid_tgid()` 를 통해 현재 PID를 얻어오고, `bpf_printk`를 이용해 PID 정보를 커널 trace 로그(`trace_pipe`)에 출력한다.  
-
-이 함수가 `tp/syscalls/sys_enter_write` 섹션에 들어간다는 의미는, libbpf가 이를 tracepoint syscalls:sys_enter_write 이벤트와 자동으로 연결한다는 뜻이다.  
-간단히 말해서 `write()` 시스템 콜이 실행될 때마다 커널이 이 eBPF 함수를 불러올 수 있도록 후킹해둔 것이다.
-
-> `tracepoint:syscalls:sys_enter_`는 리눅스 커널의 시스템 콜(syscall)이 프로그램에 의해 호출되는 시점(enter)을 추적(trace)하기 위해 미리 정의된 "트레이스포인트"를 의미한다.  
-
-> "syscalls"는 시스템 콜 관련 이벤트 그룹을, "sys_enter_"는 특정 시스템 콜이 실행되기 직전에 발생하는 이벤트를 나타내며, 뒤에 오는 단어는 해당 시스템 콜의 이름(ex: accept, write)을 가리킨다.  
 
 <br>
 
