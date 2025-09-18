@@ -1,8 +1,44 @@
 # Tracepoint 기반 syscall 후킹
 
-/*
-ecc ecli 설명 파일 여기 병합
-*/
+### ecc 
+- ecc(eBPF C Compiler)는 C 언어로 작성한 eBPF 프로그램을 커널이 이해할 수 있는 eBPF 바이트코드와 메타데이터(JSON) 로 변환해주는 도구이다.  
+
+**역할**
+- `.c` 파일로 작성된 eBPF 프로그램을 LLVM IR → eBPF 바이트코드 → JSON 형식으로 변환한다.
+- 프로그램에서 사용되는 eBPF 맵을 JSON에 함께 포함한다. 
+- 결과물이 ELF 오브젝트가 아닌 JSON 형식이므로, 다른 환경에서도 쉽게 실행 및 배포할 수 있다.
+
+> LLVM IR(Low Level Virtual Machine Intermediate Representation)은 c/cpp 같은 하이 레벨과 로우 레벨 사이에 있는 중간 언어이다.  
+
+<br>
+
+
+### ecli (eBPF Command Line Interface)  
+**ecli** 는 eBPF Command Line Interface 의 약자로, `ecc` 가 생성한 JSON 파일을 읽어 커널에 로드하고 제어하는 역할을 한다.  
+사용자가 bpftool이나 직접 BPF syscall을 호출하지 않아도 직관적인 CLI를 통해 eBPF 프로그램을 다룰 수 있게 해준다.  
+<br>
+
+**역할**
+- JSON 기반 eBPF 프로그램을 커널에 붙여준다.
+- JSON에 정의된 맵을 생성, 조회, 수정할 수 있다.
+
+
+<br>
+
+### ecc 와 ecli 사용 순서
+
+1. C 코드로 eBPF 프로그램 작성  
+   → `prog.c`
+
+2. ecc 로 컴파일  
+   → `prog.json` 생성 (바이트코드 + 메타데이터 포함)
+
+3. ecli 로 로드 및 실행  
+   → 커널에 attach, 로그 확인, 맵 접근 가능
+
+요약하자면, ecc 는 빌드 도구, ecli 는 실행, 관리 도구이다.
+
+<br>
 
 ### ecc, ecli 설치
 ```bash
