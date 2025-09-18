@@ -1,4 +1,4 @@
-# uprobe 기반 syscall 후킹
+# uprobe 기반 함수 호출 캡처
 
 ### uprobe
 uprobe는 커널 모드 대상이였던 tracepoint, fentry, kprobe랑 다르게 유저 공간 대상으로 실행된다.  
@@ -55,7 +55,7 @@ char LICENSE[] SEC("license") = "GPL";
 
 `//bin/bash:readline`는 `/bin/bash` 실행 파일 안의 `readline` 함수가 리턴될 때 실행되므로 커널에서 아무 값을 입력하면 그 값을 읽어올 것이다.  
 
-그리고 아래 `BPF_KRETPROB`는 PID와 
+그리고 아래 `BPF_KRETPROB`를 통해 PID와 comm(실행되는 프로세스 이름. 여기선 bash), str(읽은 문자열)이 출력될 것이다.
 
 <br>
 
@@ -107,7 +107,7 @@ sudo cat /sys/kernel/debug/tracing/trace_pipe
 <br>
 
 ### 요약
-
+사용자 공간에서 bash의 readline 함수를 읽어오는 실습을 해봤다. 이렇게 유저 공간 함수 호출을 캡처하여 사용자의 동작을 관찰하는 것은 보안 모니터링에서도 중요하게 사용되고, HTTP나 HTTP2 처럼 커널에서 바로 파싱하기 어려운 트래픽 분석에서도 응용할 수 있다고 한다. uprobe 기반 접근은 실제 환경에서 자주 활용되는 중요한 도구라 할 수 있다.  
 
 
 
