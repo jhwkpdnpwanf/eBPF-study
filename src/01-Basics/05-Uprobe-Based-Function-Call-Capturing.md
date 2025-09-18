@@ -117,5 +117,5 @@ sudo cat /sys/kernel/debug/tracing/trace_pipe
 
 ## References
 
--  practice sequence : https://github.com/eunomia-bpf/bpf-developer-tutorial/blob/main/src/3-fentry-unlink/README.md
+-  practice sequence : https://github.com/eunomia-bpf/bpf-developer-tutorial/blob/main/src/5-uprobe-bashreadline/README.md
 -  Compile and Run & bashreadline.bpf.c : https://github.com/eunomia-bpf/eunomia-bpf/tree/master/examples/bpftools/bashreadline
