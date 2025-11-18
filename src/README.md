@@ -17,7 +17,9 @@ eBPF의 학습을 시작하는 기초 단계로, 간단한 실습을 중심으�
 
 - [05-Uprobe-Based-Function-Call-Capturing](./01-Basics/05-Uprobe-Based-Function-Call-Capturing.md) : uprobe 기반 유저 공간 함수 호출 캡처
 
-- 06
+- [06-Sigsnoop-with-Hashmap.md](./01-Basics/06-Sigsnoop-with-Hashmap.md) : Signal snooping 후 Hashmap에 저장 실습
+
+
 - 07
 - 08
 
