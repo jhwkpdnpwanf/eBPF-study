@@ -268,6 +268,6 @@ struct {
 ## References
 
 -  practice sequence : https://github.com/eunomia-bpf/eunomia-bpf/tree/master/examples/bpftools/sigsnoop
--  Compile and Run & sigsnoop.bpf.c : https://github.com/eunomia-bpf/eunomia-bpf/tree/master/examples/bpftools/sigsnoop
+-  Compile and Run & sigsnoop.bpf.c : https://github.com/eunomia-bpf/bpf-developer-tutorial/blob/main/src/6-sigsnoop/README.md
 
   
