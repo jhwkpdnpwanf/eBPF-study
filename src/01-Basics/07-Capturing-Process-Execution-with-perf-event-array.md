@@ -54,6 +54,7 @@ ABI 헤더파일이라고도 부르며, 커널과 유저 사이에서 구조를 
 **execsnoop.bpf.c**
 
 ```c
+// SPDX-License-Identifier: (LGPL-2.1 OR BSD-2-Clause)
 #include <vmlinux.h>
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_core_read.h>
@@ -86,6 +87,8 @@ int tracepoint_syscalls_sys_enter_execve(struct trace_event_raw_sys_enter* ctx)
     bpf_perf_event_output(ctx, &events, BPF_F_CURRENT_CPU, &event, sizeof(event));
     return 0;
 }
+
+char LICENSE[] SEC("license") = "GPL";
 ```
 
 <br>
