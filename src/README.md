@@ -20,8 +20,11 @@ eBPF의 학습을 시작하는 기초 단계로, 간단한 실습을 중심으�
 - [06-Sigsnoop-with-Hashmap.md](./01-Basics/06-Sigsnoop-with-Hashmap.md) : Signal snooping 후 Hashmap에 저장 실습
 
 
-- 07
-- 08
+- [07-Capturing-Process-Execution-with-perf-event-array.md](./01-Basics/07-Capturing-Process-Execution-with-perf-event-array.md) : perf event array를 활용한 프로세스 실행 캡쳐
+
+
+- [08-Monitoring-Process-Exit-with-Ring-Buffer.md](./01-Basics/08-Monitoring-Process-Exit-with-Ring-Buffer.md) : ring buffer를 활용한 프로세스 종료 캡쳐
+
 
 <br>
 
