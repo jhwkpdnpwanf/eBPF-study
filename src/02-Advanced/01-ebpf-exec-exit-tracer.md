@@ -130,7 +130,155 @@ int handle_exit(struct trace_event_raw_sched_process_template* ctx)
 }
 ```
 
+
+### 코드 해석  
+
+```c
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __uint(max_entries, 8192);
+    __type(key, pid_t);
+    __type(value, u64);
+} exec_start SEC(".maps");
+
+struct {
+    __uint(type, BPF_MAP_TYPE_RINGBUF);
+    __uint(max_entries, 256 * 1024);
+} rb SEC(".maps");
+```
+
+우선 정의된 해시맵과 링버퍼 맵을 확인해본다.  
+해시 맵에서는 pid를 key로 사용하고 정수를 value로 사용하는 것을 확인해볼 수 있다.  
+실제로 이후 코드에서 이를 활용하여 exit 시점에서 얼마나 오래 살아있었는지 시간을 저장하게 된다.  
+
+아래 링버퍼 맵은 커널에서 유저공간으로 데이터를 전송할 수 있게 해준다.  
+다음으로 attach한 지점을 확인해보자.   
+
 <br>
+
+```c
+SEC("tp/sched/sched_process_exec")
+int handle_exec(struct trace_event_raw_sched_process_exec *ctx)
+{
+    // ...
+    pid = bpf_get_current_pid_tgid() >> 32;
+    ts = bpf_ktime_get_ns();
+    bpf_map_update_elem(&exec_start, &pid, &ts, BPF_ANY);
+
+    /* don't emit exec events when minimum duration is specified */
+    if (min_duration_ns)
+        return 0;
+
+    /* reserve sample from BPF ringbuf */
+    e = bpf_ringbuf_reserve(&rb, sizeof(*e), 0);
+    if (!e)
+        return 0;
+    // ...
+
+}
+```
+`tp/sched/sched_process_exec`으로 프로그램을 실행하는 exec 시점에 attach했다.  
+
+코드를 읽어보면 pid와 exec 시작 시간을 알기 위한 ts를 정의한다.  
+그리고 해시맵에 이를 저장한다.  
+
+추가로 최소 실행시간 설정을 위한 코드와 링버퍼에 공간을 예약하는 코드가 존재한다.  
+
+<br>
+
+
+```c
+    /* fill out the sample with data */
+    task = (struct task_struct *)bpf_get_current_task();
+
+    e->exit_event = false;
+    e->pid = pid;
+    e->ppid = BPF_CORE_READ(task, real_parent, tgid);
+    bpf_get_current_comm(&e->comm, sizeof(e->comm));
+
+    fname_off = ctx->__data_loc_filename & 0xFFFF;
+    bpf_probe_read_str(&e->filename, sizeof(e->filename), (void *)ctx + fname_off);
+
+    /* successfully submit it to user-space for post-processing */
+    bpf_ringbuf_submit(e, 0);
+    return 0;
+```
+
+이제 데이터를 써준다.  
+exec을 표시하기 위해 `exit_event`는 false이고 pid와 ppid 그리고 명령어 이름과 경로를 알기 위해 `bpf_get_current_comm`와 `bpf_probe_read_str`를 사용했다.  
+이후 `bpf_ringbuf_submit(e, 0)`으로 전송.  
+
+<br>
+
+```c
+SEC("tp/sched/sched_process_exit")
+int handle_exit(struct trace_event_raw_sched_process_template* ctx)
+{
+    // ...
+    /* get PID and TID of exiting thread/process */
+    id = bpf_get_current_pid_tgid();
+    pid = id >> 32;
+    tid = (u32)id;
+
+    /* ignore thread exits */
+    if (pid != tid)
+        return 0;
+
+    /* if we recorded start of the process, calculate lifetime duration */
+    start_ts = bpf_map_lookup_elem(&exec_start, &pid);
+    if (start_ts)duration_ns = bpf_ktime_get_ns() - *start_ts;
+    else if (min_duration_ns)
+        return 0;
+    bpf_map_delete_elem(&exec_start, &pid);
+
+    /* if process didn't live long enough, return early */
+    if (min_duration_ns && duration_ns < min_duration_ns)
+        return 0;
+    //...
+```
+
+여기선 exit 할 때 호출되도록 `tp/sched/sched_process_exit` 지점에 붙였다.  
+
+프로세스가 종료될 때만을 보기 위해 `pid==tid`일 때만 통과된다.  
+다음으로 exec 때 저장한 ts를 통해 duration을 계산해준다.  
+최소시간 필터가 적용되었다면 설정된 최소시간보다 짧게 살았다면 반환된다. (버린다.)  
+
+그리고 사용이 끝났다면 `bpf_map_delete_elem(&exec_start, &pid);`를 통해 맵에서 지워준다.  
+
+<br>
+
+```c
+    e = bpf_ringbuf_reserve(&rb, sizeof(*e), 0);
+    if (!e)
+        return 0;
+
+    /* fill out the sample with data */
+    task = (struct task_struct *)bpf_get_current_task();
+
+    e->exit_event = true;
+    e->duration_ns = duration_ns;
+    e->pid = pid;
+    e->ppid = BPF_CORE_READ(task, real_parent, tgid);
+    e->exit_code = (BPF_CORE_READ(task, exit_code) >> 8) & 0xff;
+    bpf_get_current_comm(&e->comm, sizeof(e->comm));
+
+    /* send data to user-space for post-processing */
+    bpf_ringbuf_submit(e, 0);
+    return 0;
+```
+
+이제 exec때와 동일하게 링버퍼를 예약해주고 유저공간으로 넘길 데이터를 예약해준다. 
+그리고 `exit_event` 를 포함해서 실행시간인 `duration_ns`와 `pid` `ppid` 종료상태인 `exit_code` 프로세스 이름을 기록해서 전송한다.  
+
+
+
+<br>
+
+
+### 추가 유저 코드  
+
+
+
 
 **유저공간: bootstrap.c**  
 
@@ -309,3 +457,20 @@ cleanup:
     return err < 0 ? -err : 0;
 }
 ```
+
+
+
+
+```bash
+sudo apt install clang libelf1 libelf-dev zlib1g-dev
+```
+
+
+<br>
+<br>
+
+## References  
+
+- Full practice sequence : https://github.com/eunomia-bpf/bpf-developer-tutorial/tree/main/src/11-bootstrap
+
+- Compile and Run : https://github.com/eunomia-bpf/eunomia-bpf/tree/master/examples/bpftools/bootstrap
