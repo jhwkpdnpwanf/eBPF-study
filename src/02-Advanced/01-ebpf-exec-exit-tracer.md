@@ -459,11 +459,143 @@ cleanup:
 ```
 
 
+### 코드 해석   
 
+이 코드는 bpf 코드에서 전달한 데이터를 사용자가 볼 수 있도록 구현하는 코드이다.  
+
+우선 env 구조체를 정의해주었다.  
+구조체엔 두가지 값이 있는데 하나는 명령 처리 로그를 보여주는 verbose 모드를 선택할 수 있는 bool 값과 최소 실행시간을 정할 수 있는 min_duration_ms 값이다.  
+
+이후에는 명령어 파싱 코드이다.  
+<br>
+
+```c
+static int libbpf_print_fn(enum libbpf_print_level level, const char *format, va_list args)
+{
+    if (level == LIBBPF_DEBUG && !env.verbose)
+        return 0;
+    return vfprintf(stderr, format, args);
+}
+
+static volatile bool exiting = false;
+
+static void sig_handler(int sig)
+{
+    exiting = true;
+}
+```
+
+libbpf_print_fn 는 디버그가 필요한 경우에 로그를 출력하는 함수이다.  
+sig_handler 은 컨트롤 c 와 같이 프로그램을 중단할 수 있도록 exiting 플래그를 설정해둔 것이다.  
+<br>
+
+```c
+static int handle_event(void *ctx, void *data, size_t data_sz)
+{
+    const struct event *e = data;
+    struct tm *tm;
+    char ts[32];
+    time_t t;
+
+    time(&t);
+    tm = localtime(&t);
+    strftime(ts, sizeof(ts), "%H:%M:%S", tm);
+
+    if (e->exit_event) {
+        printf("%-8s %-5s %-16s %-7d %-7d [%u]",
+               ts, "EXIT", e->comm, e->pid, e->ppid, e->exit_code);
+        if (e->duration_ns)
+            printf(" (%llums)", e->duration_ns / 1000000);
+        printf("\n");
+    } else {
+        printf("%-8s %-5s %-16s %-7d %-7d %s\n",
+               ts, "EXEC", e->comm, e->pid, e->ppid, e->filename);
+    }
+
+    return 0;
+}
+```
+
+handle_event 함수는 BPF 코드에서 전달했던 데이터이다.  
+전달했던 데이터를 event 구조체로 해석하여 같은 형태의 데이터를 공유하는 셈이 된다.  
+이후 이벤트 발생 시점의 시간을 계산하여 exit 일때, 실행시간을 기록한 경우일 때, exec일 때를 구분해서 조금씩 다른 형태로 출력한다.  
+<br>
+
+다음으로 메인 함수 로직은 주석으로 잘 설명이 되어있다.  
+주요 기능은 아래와 같다.  
+
+- 명령어 줄 인자 파싱 
+- libbpf 오류와 디버그 정보 출력을 위해 콜백 설정
+- BPF 코드 로드와 검증
+- 최소실행시간 파라미터를 BPF 코드에 전달
+- tracepoint에 BPF 프로그램을 부착
+- ring buffer 폴링 설정
+- 프로그램 종료, 리소스 정리
+
+<br>
+
+
+### 코드 실행  
+
+
+**eBPF 오브젝트 파일 생성**   
+
+eBPF 코드를 바이트코드로 컴파일해주고  
 
 ```bash
-sudo apt install clang libelf1 libelf-dev zlib1g-dev
+clang -target bpf -g -c bootstrap.bpf.c -o bootstrap.bpf.o
 ```
+
+만든 .o 파일로 스켈레톤 헤더파일을 만들어준 뒤  
+
+```bash
+bpftool gen skeleton bootstrap.bpf.o > bootstrap.skel.h
+```
+
+유저공간 코드를 컴파일하여 실행 파일을 생성해준다.  
+
+```bash
+clang bootstrap.c -o bootstrap -lbpf -lelf -lz
+```
+
+그리고 로그를 띄울 임의의 sh 코드를 만들어줬다.   
+
+```sh
+#!/usr/bin/env bash
+
+sudo ./bootstrap &
+BOOT_PID=$!
+
+sleep 1
+sleep 2
+sleep 3
+
+ls / > /dev/null 2>&1
+cat /etc/passwd > /dev/null 2>&1
+
+sudo kill -INT "$BOOT_PID"
+wait "$BOOT_PID"
+```
+
+<br>
+
+
+그리고 이걸 실행해보면,  
+
+```bash
+sudo ./bootstrap
+```
+
+![alt text](./img/01-bootstrap.png)   
+이렇게 모든 정보가 잘 출력이 되는 것을 볼 수 있다.  
+추가로 
+
+sudo ./bootstrap -d 150 인 최소시간을 설정하면,   
+<br>
+
+![alt text](./img/01-bootstrap1.png)  
+이렇게 실행시간이 1.5초 이상인 sleep만 출력할 수 있다.  
+
 
 
 <br>
