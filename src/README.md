@@ -25,7 +25,7 @@ eBPF의 학습을 시작하는 기초 단계로, 간단한 실습을 중심으�
 
 - [08-Monitoring-Process-Exit-with-Ring-Buffer](./01-Basics/08-Monitoring-Process-Exit-with-Ring-Buffer.md) : ring buffer를 활용한 프로세스 종료 캡쳐
 
-- [09-Capturing-Scheduling-Latency](./01-Basics/09-Capturing-Scheduling-Latency.md) : Scheduling 지연 캡쳐 & 시각화
+- [09-Capturing-Scheduling-Latency](./01-Basics/09-Capturing-Scheduling-Latency.md) : runqlat을 활용한 Scheduling 지연 캡쳐 & 시각화
 
 
 <br>
