@@ -742,7 +742,7 @@ Tracing outstanding memory allocs...  Hit Ctrl-C to end
 
 ```
 
-한번에 많은 옵션이 나와 less로 한 화면으로 관측했다.  
+한번에 많은 옵션이 나와 less로 한 화면으로 관gi측했다.  
 
 tracing kernel: true로 커널 메모리 할당을 추적한 결과이다.  
 출력에 보이는 스택들이 `kmalloc_trace`, `kmem_cache_alloc`, `perf_event_open`, 등 메모리 할당과 성능 모니터링에 사용되는 tracepoint/함수/syscall 이다.  
@@ -807,6 +807,6 @@ Leaks created, sleeping for 30 seconds...
 <br>
 <br>
 
-## References  
+### References  
 
 - Full practice sequence : https://github.com/eunomia-bpf/bpf-developer-tutorial/blob/main/src/16-memleak/README.md
